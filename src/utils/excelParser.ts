@@ -218,6 +218,7 @@ export function parseExcelBuffer(buffer: ArrayBuffer, fileName: string): ParseRe
     // Extract KDV Hariç Fiyat
     const fiyatRaw = numRow[activeMapping.kdvHaricFiyat] ?? row[activeMapping.kdvHaricFiyat];
     let kdvHaricFiyat = parseLocalizedNumber(fiyatRaw);
+    kdvHaricFiyat = Math.round(kdvHaricFiyat * 10000) / 10000;
 
     // Extract KDV Oranı
     let kdvOraniRaw = numRow[activeMapping.kdvOrani] ?? row[activeMapping.kdvOrani];
@@ -238,7 +239,7 @@ export function parseExcelBuffer(buffer: ArrayBuffer, fileName: string): ParseRe
     if (kdvHaricTutar === 0 && miktar > 0 && kdvHaricFiyat > 0) {
       kdvHaricTutar = Math.round(miktar * kdvHaricFiyat * 100) / 100;
     } else if (kdvHaricFiyat === 0 && miktar > 0 && kdvHaricTutar > 0) {
-      kdvHaricFiyat = Math.round((kdvHaricTutar / miktar) * 100) / 100;
+      kdvHaricFiyat = Math.round((kdvHaricTutar / miktar) * 10000) / 10000;
     }
 
     // Valid item check: must have either valid quantity and price, or valid product name with quantity

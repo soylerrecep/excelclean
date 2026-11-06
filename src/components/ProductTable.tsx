@@ -562,7 +562,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                       <div className="relative inline-flex items-center ml-auto">
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.0001"
                           value={item.kdvHaricFiyat}
                           onChange={(e) =>
                             handleDirectCellChange(
@@ -572,7 +572,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                             )
                           }
                           className="w-28 text-right pr-5 pl-2 py-1 text-xs font-mono font-bold text-slate-900 bg-transparent hover:bg-white hover:border-slate-300 focus:bg-white border border-transparent rounded-lg focus:outline-emerald-600 focus:border-emerald-500 transition-all"
-                          title="Birim fiyatı değiştirmek için tıklayın (Tutarlar otomatik yeniden hesaplanır)"
+                          title="Birim fiyatı değiştirmek için tıklayın (4 basamak desteklenir)"
                         />
                         <span className="absolute right-1.5 text-slate-400 font-mono text-[11px] pointer-events-none">
                           ₺

@@ -10,7 +10,6 @@ import { KdvSettingsModal } from './components/KdvSettingsModal';
 import { BalancePreviewModal } from './components/BalancePreviewModal';
 import { ExtractedProductItem, ParseResult } from './types/excel';
 import { parseExcelBuffer } from './utils/excelParser';
-import { SAMPLE_PARSE_RESULT } from './utils/sampleData';
 import {
   balanceDifferenceAcrossAllItems,
   balanceDifferenceWithAdjustment,
@@ -128,13 +127,6 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleLoadSample = () => {
-    setErrorMessage(null);
-    setIsGrouped(false);
-    setGroupedItems(null);
-    setParseResult(SAMPLE_PARSE_RESULT);
   };
 
   const handleReset = () => {
@@ -293,11 +285,12 @@ export default function App() {
   };
 
   // Add custom Tevkifat rule
-  const handleAddTevkifatRule = (keyword: string, tevkifatOrani: string, aciklama: string) => {
+  const handleAddTevkifatRule = (keyword: string, tevkifatOrani: string, aciklama: string, minTotalThreshold: number) => {
     const newRule: TevkifatRule = {
       id: `tev-${Date.now()}`,
       keyword: keyword.trim(),
       tevkifatOrani,
+      minTotalThreshold,
       aciklama
     };
     const nextRules = [...tevkifatRules, newRule];
@@ -391,7 +384,6 @@ export default function App() {
           /* Empty / Upload View */
           <FileUpload
             onFileLoaded={handleFileLoaded}
-            onLoadSample={handleLoadSample}
             isLoading={isLoading}
           />
         ) : (

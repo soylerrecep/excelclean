@@ -262,12 +262,12 @@ export const BalancePreviewModal: React.FC<BalancePreviewModalProps> = ({
 
                       {/* Eski Birim Fiyat */}
                       <td className="py-2 px-3 text-right font-mono text-slate-500 line-through">
-                        {formatNumber(c.oldFiyat)} ₺
+                        {formatNumber(c.oldFiyat, 4)} ₺
                       </td>
 
                       {/* Yeni Birim Fiyat */}
                       <td className="py-2 px-3 text-right font-mono font-bold text-emerald-800">
-                        {formatNumber(c.newFiyat)} ₺
+                        {formatNumber(c.newFiyat, 4)} ₺
                       </td>
 
                       {/* Fiyat Farkı */}

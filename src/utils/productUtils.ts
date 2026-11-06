@@ -10,7 +10,7 @@ export function recalculateItem(
   const merged = { ...item, ...updates };
 
   const miktar = Math.max(0, Number(merged.miktar) || 0);
-  const kdvHaricFiyat = Math.max(0, Number(merged.kdvHaricFiyat) || 0);
+  const kdvHaricFiyat = Math.max(0, Math.round((Number(merged.kdvHaricFiyat) || 0) * 10000) / 10000);
   const kdvOrani = Math.max(0, Number(merged.kdvOrani) || 0);
 
   // KDV Haric Tutar = Miktar * Birim Fiyat (2 decimal precision)
@@ -80,7 +80,7 @@ export function getMergePreviewGroups(items: ExtractedProductItem[]): MergeGroup
 
     const avgFiyat =
       totalMiktar > 0
-        ? Math.round((totalKdvHaric / totalMiktar) * 100) / 100
+        ? Math.round((totalKdvHaric / totalMiktar) * 10000) / 10000
         : 0;
 
     const siparisler = new Set<string>();
@@ -201,7 +201,7 @@ export function balanceDifferenceAcrossAllItems(
 
     const updatedBirimFiyat =
       item.miktar > 0
-        ? Math.round((updatedHaricTutar / item.miktar) * 100) / 100
+        ? Math.round((updatedHaricTutar / item.miktar) * 10000) / 10000
         : item.kdvHaricFiyat;
 
     return {
@@ -229,7 +229,7 @@ export function balanceDifferenceAcrossAllItems(
     let adjKdv = Math.round((adjToplam - adjHaric) * 100) / 100;
     let adjBirimFiyat =
       lastItem.miktar > 0
-        ? Math.round((adjHaric / lastItem.miktar) * 100) / 100
+        ? Math.round((adjHaric / lastItem.miktar) * 10000) / 10000
         : lastItem.kdvHaricFiyat;
 
     updatedItems[lastIdx] = {
@@ -336,7 +336,7 @@ export function balanceDifferenceOnLastItem(
 
   const updatedBirimFiyat =
     targetItem.miktar > 0
-      ? Math.round((updatedHaricTutar / targetItem.miktar) * 100) / 100
+      ? Math.round((updatedHaricTutar / targetItem.miktar) * 10000) / 10000
       : targetItem.kdvHaricFiyat;
 
   const updatedItem: ExtractedProductItem = {

@@ -1,15 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileSpreadsheet, Sparkles, ArrowRight, ShieldCheck, Check } from 'lucide-react';
+import { UploadCloud, ShieldCheck, Check } from 'lucide-react';
 
 interface FileUploadProps {
   onFileLoaded: (buffer: ArrayBuffer, fileName: string) => void;
-  onLoadSample: () => void;
   isLoading: boolean;
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
   onFileLoaded,
-  onLoadSample,
   isLoading
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -119,34 +117,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         </div>
       </div>
 
-      {/* Or Load Sample Data Button */}
-      <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-xl bg-slate-900 text-white shadow-sm">
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="font-semibold text-sm text-white">
-              Ekran Görüntüsündeki Gerçek Excel Verisiyle Hemen Deneyin
-            </div>
-            <div className="text-xs text-slate-400">
-              12 Sipariş, 44 Ürün Kalemi, D Sütunu Dip Toplam: 148.005,00 ₺
-            </div>
-          </div>
-        </div>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onLoadSample();
-          }}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition-colors shadow-xs cursor-pointer shrink-0"
-        >
-          <span>Örnek Veriyi Yükle</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
 
       {/* Feature Explanations */}
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
