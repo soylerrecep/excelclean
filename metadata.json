@@ -1,0 +1,6 @@
+{
+  "name": "Excel Ürün Ayrıştırıcı ve Mutabakat Aracı",
+  "description": "Karmaşık ERP Excel tablolarından ürün stok adı, miktarı, birimi, KDV hariç fiyatı ve KDV oranını otomatik ayıklayan, dip toplam ile mutabakat sağlayan ve temiz XLSX/CSV üreten araç.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

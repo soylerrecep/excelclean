@@ -1,0 +1,6 @@
+{
+  "summary": "Excel Ürün & Fiyat Ayrıştırıcı ve Mutabakat Sistemi (Excel ERP Parser & Total Reconciliation) için mimari ve uygulama planı. Karmaşık ERP Excel formatından Stok Adı, Miktarı, Birimi, KDV Hariç Fiyatı ve KDV Oranını ayıklar; D sütunundaki dip toplam ile kuruşu kuruşuna mutabakat doğrulaması yapar ve temiz XLSX/CSV çıktısı üretir.",
+  "updatedAt": "2026-11-06T06:41:30.444116839Z",
+  "requestFeedback": true,
+  "userFacing": true
+}
