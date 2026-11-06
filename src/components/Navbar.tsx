@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSpreadsheet, RefreshCw, HelpCircle, CheckCircle2, Settings } from 'lucide-react';
+import { FileSpreadsheet, RefreshCw, HelpCircle, CheckCircle2, Settings, ShieldAlert } from 'lucide-react';
 
 interface NavbarProps {
   hasData: boolean;
@@ -8,7 +8,8 @@ interface NavbarProps {
   fileName?: string;
   isReconciled?: boolean;
   kdvMismatchCount?: number;
-  onOpenKdvSettings?: () => void;
+  onOpenKdvSettings: () => void;
+  onOpenTevkifat: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,11 +19,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   fileName,
   isReconciled,
   kdvMismatchCount = 0,
-  onOpenKdvSettings
+  onOpenKdvSettings,
+  onOpenTevkifat
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Zone 1: Brand Wordmark */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
@@ -33,19 +35,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="text-base font-bold tracking-tight text-slate-900">
                 Excel Ürün & Mutabakat
               </span>
-              <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium border border-slate-200">
+              <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium border border-slate-200 hidden sm:inline-block">
                 ERP Parser
               </span>
             </div>
-            <p className="text-xs text-slate-500 hidden sm:block">
+            <p className="text-xs text-slate-500 hidden md:block">
               Stok adı, miktar, birim, fiyat, KDV ve D sütunu dip toplam kontrolü
             </p>
           </div>
         </div>
 
-        {/* Zone 2: Status & Active File */}
+        {/* Zone 2: Status & Active File (when data exists) */}
         {hasData && (
-          <div className="hidden md:flex items-center gap-3 text-xs">
+          <div className="hidden lg:flex items-center gap-3 text-xs">
             <div className="flex items-center gap-2 text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg max-w-xs truncate">
               <span className="text-slate-400">Aktif Dosya:</span>
               <span className="font-semibold text-slate-800 truncate">{fileName}</span>
@@ -58,21 +60,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>{isReconciled ? 'Mutabakat Sağlandı' : 'Fark Var'}</span>
               </div>
             )}
-            {kdvMismatchCount > 0 && onOpenKdvSettings && (
-              <button
-                onClick={onOpenKdvSettings}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
-                title="KDV kural uyuşmazlıklarını incele"
-              >
-                <Settings className="w-3.5 h-3.5 text-blue-600" />
-                <span>{kdvMismatchCount} KDV Uyarısı</span>
-              </button>
-            )}
           </div>
         )}
 
-        {/* Zone 3: Actions */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Zone 3: Always Visible Settings & Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onOpenKdvSettings}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer"
+            title="KDV Kuralları ve Oranları"
+          >
+            <Settings className="w-3.5 h-3.5 text-blue-600" />
+            <span>KDV Ayarları</span>
+            {kdvMismatchCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                {kdvMismatchCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={onOpenTevkifat}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer"
+            title="Tevkifat Kuralları ve Üst Sınırlar"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-purple-600" />
+            <span>Tevkifat Ayarları</span>
+          </button>
+
           <button
             onClick={onOpenHelp}
             className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
@@ -87,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors shadow-2xs cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Yeni Dosya</span>
+              <span className="hidden sm:inline">Yeni Dosya</span>
             </button>
           )}
         </div>

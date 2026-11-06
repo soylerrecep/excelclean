@@ -370,6 +370,7 @@ export default function App() {
         isReconciled={parseResult?.reconciliation.isReconciled}
         kdvMismatchCount={kdvReport.mismatchCount}
         onOpenKdvSettings={() => setIsKdvSettingsOpen(true)}
+        onOpenTevkifat={() => setIsTevkifatOpen(true)}
       />
 
       {/* Main Workspace */}
@@ -465,30 +466,30 @@ export default function App() {
             }
             targetMode={parseResult.reconciliation.targetMode}
           />
-
-          {/* KDV Settings & Rules Modal: Kullanıcı Tanımlı KDV Kuralları */}
-          <KdvSettingsModal
-            isOpen={isKdvSettingsOpen}
-            onClose={() => setIsKdvSettingsOpen(false)}
-            rules={kdvRules}
-            onAddRule={handleAddKdvRule}
-            onDeleteRule={handleDeleteKdvRule}
-            report={kdvReport}
-            onFixSingleItem={handleFixSingleItemKdv}
-            onFixAllMismatches={handleFixAllKdvMismatches}
-          />
-
-          {/* Tevkifat Modal: KDV Tevkifatı Kontrolü */}
-          <TevkifatModal
-            isOpen={isTevkifatOpen}
-            onClose={() => setIsTevkifatOpen(false)}
-            rules={tevkifatRules}
-            onAddRule={handleAddTevkifatRule}
-            onDeleteRule={handleDeleteTevkifatRule}
-            report={tevkifatReport}
-          />
         </>
       )}
+
+      {/* KDV Settings & Rules Modal: Kullanıcı Tanımlı KDV Kuralları (Always accessible) */}
+      <KdvSettingsModal
+        isOpen={isKdvSettingsOpen}
+        onClose={() => setIsKdvSettingsOpen(false)}
+        rules={kdvRules}
+        onAddRule={handleAddKdvRule}
+        onDeleteRule={handleDeleteKdvRule}
+        report={kdvReport}
+        onFixSingleItem={handleFixSingleItemKdv}
+        onFixAllMismatches={handleFixAllKdvMismatches}
+      />
+
+      {/* Tevkifat Modal: KDV Tevkifatı Kontrolü (Always accessible) */}
+      <TevkifatModal
+        isOpen={isTevkifatOpen}
+        onClose={() => setIsTevkifatOpen(false)}
+        rules={tevkifatRules}
+        onAddRule={handleAddTevkifatRule}
+        onDeleteRule={handleDeleteTevkifatRule}
+        report={tevkifatReport}
+      />
 
       <HelpModal
         isOpen={isHelpOpen}

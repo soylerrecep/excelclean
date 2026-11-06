@@ -2,9 +2,10 @@ import { ExtractedProductItem } from '../types/excel';
 
 export interface TevkifatRule {
   id: string;
-  keyword: string; // e.g. "hafriyat", "temizlik", "bakım", "mühendislik", "yapım", "inşaat"
-  tevkifatOrani: string; // e.g. "9/10", "5/10", "7/10"
-   aciklama: string;
+  keyword: string; // e.g. "hafriyat", "çivi"
+  tevkifatOrani: string; // e.g. "9/10", "5/10"
+  minTotalThreshold?: number; // KDV dahil üst sınır / alt sınır (örn: 12000 TL üzeri)
+  aciklama: string;
 }
 
 export interface TevkifatItemCheck {
@@ -12,44 +13,46 @@ export interface TevkifatItemCheck {
   rule: TevkifatRule;
   tevkifatTutar: number;
   netKdv: number;
+  isAboveThreshold: boolean;
 }
 
-const STORAGE_KEY = 'erp_parser_tevkifat_rules_v1';
+const STORAGE_KEY = 'erp_parser_tevkifat_rules_v2';
 
-/**
- * Standard Turkish VAT Withholding (KDV Tevkifatı) rules according to KDVK Seri Seri Tebliğleri
- * (Yapım işleri, mühendislik-mimarlık, çevre ve temizlik, makine bakım onarım, hafriyat vb.)
- */
 export const DEFAULT_TEVKIFAT_RULES: TevkifatRule[] = [
   {
     id: 'tev-1',
     keyword: 'hafriyat',
     tevkifatOrani: '5/10',
+    minTotalThreshold: 0,
     aciklama: 'Hafriyat işleri (5/10 KDV Tevkifatı)'
   },
   {
     id: 'tev-2',
     keyword: 'temizlik',
     tevkifatOrani: '7/10',
+    minTotalThreshold: 0,
     aciklama: 'Çevre ve bahçe bakım / temizlik hizmetleri (7/10 KDV Tevkifatı)'
   },
   {
     id: 'tev-3',
     keyword: 'mühendislik',
     tevkifatOrani: '9/10',
+    minTotalThreshold: 0,
     aciklama: 'Mimarlık, mühendislik ve danışmanlık hizmetleri (9/10 KDV Tevkifatı)'
   },
   {
     id: 'tev-4',
     keyword: 'bakım',
     tevkifatOrani: '5/10',
+    minTotalThreshold: 0,
     aciklama: 'Makine, teçhizat ve demirbaş bakım onarımı (5/10 KDV Tevkifatı)'
   },
   {
     id: 'tev-5',
-    keyword: 'yapım',
-    tevkifatOrani: '4/10',
-    aciklama: 'Yapım işleri ile bu işlere ilişkin mühendislik-mimarlık (4/10 KDV Tevkifatı)'
+    keyword: 'çivi',
+    tevkifatOrani: '5/10',
+    minTotalThreshold: 12000,
+    aciklama: 'Çivi ve bağlama elemanları (12.000 TL üzeri KDV Dahil Tevkifat)'
   }
 ];
 
@@ -77,7 +80,7 @@ export function saveTevkifatRules(rules: TevkifatRule[]): void {
 }
 
 /**
- * Checks if an item matches any Tevkifat rule based on its stock name
+ * Checks if an item matches Tevkifat rule and respects minTotalThreshold (KDV Dahil üst sınır)
  */
 export function checkItemTevkifat(
   item: ExtractedProductItem,
@@ -89,7 +92,14 @@ export function checkItemTevkifat(
   for (const rule of rules) {
     const kw = rule.keyword.trim().toLocaleLowerCase('tr-TR');
     if (kw && nameTr.includes(kw)) {
-      // Parse numerator / denominator e.g. "9/10" -> numerator = 9, denominator = 10
+      const threshold = rule.minTotalThreshold ?? 0;
+      // KDV dahil toplam tutar sınırı kontrolü
+      const isAboveThreshold = threshold === 0 || item.toplamTutar >= threshold;
+
+      if (!isAboveThreshold) {
+        continue; // Sınırın altında kaldığı için tevkifat uygulanmaz
+      }
+
       const parts = rule.tevkifatOrani.split('/');
       const num = parseFloat(parts[0]) || 0;
       const den = parseFloat(parts[1]) || 10;
@@ -102,7 +112,8 @@ export function checkItemTevkifat(
         item,
         rule,
         tevkifatTutar,
-        netKdv
+        netKdv,
+        isAboveThreshold: true
       };
     }
   }
