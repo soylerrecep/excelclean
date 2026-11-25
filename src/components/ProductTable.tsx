@@ -12,7 +12,8 @@ import {
   Sparkles,
   Eye,
   RotateCcw,
-  Settings
+  Settings,
+  Plus
 } from 'lucide-react';
 import { ExtractedProductItem } from '../types/excel';
 import { formatNumber } from '../utils/exportHelpers';
@@ -48,6 +49,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   rawItems,
   onUpdateItem,
   onDeleteItem,
+  onAddItem,
   isGrouped,
   onToggleGrouped,
   onConfirmMerge,
@@ -67,6 +69,15 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
   const [isMergePreviewOpen, setIsMergePreviewOpen] = useState(false);
+
+  // Inline bottom add-product row state
+  const [newStokAdi, setNewStokAdi] = useState('');
+  const [newMiktar, setNewMiktar] = useState('1');
+  const [newBirim, setNewBirim] = useState('ADET');
+  const [newFiyat, setNewFiyat] = useState('');
+  const [newKdvOrani, setNewKdvOrani] = useState(20);
+  const [addError, setAddError] = useState<string | null>(null);
+  const newNameInputRef = React.useRef<HTMLInputElement>(null);
 
   // Directly use the active items provided by parent (raw or grouped)
   const baseItems = items;
@@ -194,6 +205,86 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       setTimeout(() => setCopiedItemId(null), 1800);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Live calculated preview for the bottom add-product row
+  const newItemPreview = useMemo(() => {
+    const parsedMiktar = Math.max(0, parseFloat(newMiktar.replace(',', '.')) || 0);
+    const parsedFiyat = Math.max(0, parseFloat(newFiyat.replace(',', '.')) || 0);
+    return recalculateItem({
+      id: 'preview-new',
+      stokAdi: newStokAdi.trim(),
+      miktar: parsedMiktar,
+      birim: (newBirim.trim() || 'ADET').toUpperCase(),
+      kdvHaricFiyat: parsedFiyat,
+      kdvOrani: newKdvOrani,
+      kdvHaricTutar: 0,
+      kdvTutari: 0,
+      toplamTutar: 0
+    });
+  }, [newStokAdi, newMiktar, newBirim, newFiyat, newKdvOrani]);
+
+  const handleAddNewRow = () => {
+    const cleanName = newStokAdi.trim();
+    const parsedMiktar = parseFloat(newMiktar.replace(',', '.'));
+    const parsedFiyat = newFiyat.trim() === '' ? 0 : parseFloat(newFiyat.replace(',', '.'));
+    const cleanBirim = (newBirim.trim() || 'ADET').toUpperCase();
+
+    if (!cleanName) {
+      setAddError('Lütfen ürün stok adını yazınız.');
+      newNameInputRef.current?.focus();
+      return;
+    }
+
+    if (isNaN(parsedMiktar) || parsedMiktar <= 0) {
+      setAddError('Miktar 0’dan büyük olmalıdır.');
+      return;
+    }
+
+    if (isNaN(parsedFiyat) || parsedFiyat < 0) {
+      setAddError('Geçerli bir birim fiyat giriniz.');
+      return;
+    }
+
+    const maxRowNum = baseItems.reduce((max, it) => Math.max(max, it.rawRowNumber || 0), 0);
+    const createdItem = recalculateItem({
+      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      stokAdi: cleanName,
+      miktar: parsedMiktar,
+      birim: cleanBirim,
+      kdvHaricFiyat: parsedFiyat,
+      kdvOrani: newKdvOrani,
+      kdvHaricTutar: 0,
+      kdvTutari: 0,
+      toplamTutar: 0,
+      rawRowNumber: maxRowNum + 1
+    });
+
+    onAddItem(createdItem);
+
+    // Ensure newly added item is visible if active filters would hide it
+    if (searchQuery.trim() && !cleanName.toLowerCase().includes(searchQuery.toLowerCase().trim())) {
+      setSearchQuery('');
+    }
+    if (selectedKdv !== 'all' && selectedKdv !== newKdvOrani) {
+      setSelectedKdv('all');
+    }
+    if (selectedUnit !== 'all' && selectedUnit !== cleanBirim) {
+      setSelectedUnit('all');
+    }
+
+    setNewStokAdi('');
+    setNewMiktar('1');
+    setNewFiyat('');
+    setAddError(null);
+    newNameInputRef.current?.focus();
+  };
+
+  const handleAddKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddNewRow();
     }
   };
 
@@ -663,6 +754,127 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                 );
               })
             )}
+            {/* Inline Add Product Row at Bottom of List */}
+            <tr className="bg-emerald-50/40 border-t-2 border-emerald-200/80">
+              <td className="py-2.5 px-3 text-center">
+                <span
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 font-bold"
+                  title="Listenin altına yeni ürün ekle"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </span>
+              </td>
+
+              <td className="py-2 px-3">
+                <input
+                  ref={newNameInputRef}
+                  type="text"
+                  value={newStokAdi}
+                  onChange={(e) => {
+                    setNewStokAdi(e.target.value);
+                    if (addError) setAddError(null);
+                  }}
+                  onKeyDown={handleAddKeyDown}
+                  placeholder="Yeni ürün adı ekle (örn: ÇİVİ, NAKLİYE)..."
+                  className={`w-full px-2.5 py-1.5 text-xs font-semibold text-slate-900 bg-white border rounded-lg focus:outline-emerald-600 focus:border-emerald-600 transition-all ${
+                    addError ? 'border-red-400 ring-1 ring-red-300' : 'border-emerald-300'
+                  }`}
+                />
+                {addError && (
+                  <div className="text-[10px] font-semibold text-red-600 mt-0.5 px-1">
+                    {addError}
+                  </div>
+                )}
+              </td>
+
+              <td className="py-2 px-2 text-right">
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={newMiktar}
+                  onChange={(e) => {
+                    setNewMiktar(e.target.value);
+                    if (addError) setAddError(null);
+                  }}
+                  onKeyDown={handleAddKeyDown}
+                  className="w-24 text-right px-2 py-1.5 text-xs font-mono font-bold text-slate-900 bg-white border border-emerald-300 rounded-lg focus:outline-emerald-600 focus:border-emerald-600 ml-auto block"
+                  title="Yeni ürün miktarı"
+                />
+              </td>
+
+              <td className="py-2 px-2 text-center">
+                <input
+                  type="text"
+                  value={newBirim}
+                  onChange={(e) => setNewBirim(e.target.value.toUpperCase())}
+                  onKeyDown={handleAddKeyDown}
+                  placeholder="ADET"
+                  className="w-20 text-center px-1.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-emerald-300 rounded-lg focus:outline-emerald-600 focus:border-emerald-600 uppercase mx-auto block"
+                  title="Birim (ADET, KG, METRE vb.)"
+                />
+              </td>
+
+              <td className="py-2 px-2 text-right">
+                <div className="relative inline-flex items-center ml-auto">
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    value={newFiyat}
+                    onChange={(e) => {
+                      setNewFiyat(e.target.value);
+                      if (addError) setAddError(null);
+                    }}
+                    onKeyDown={handleAddKeyDown}
+                    placeholder="0.0000"
+                    className="w-28 text-right pr-5 pl-2 py-1.5 text-xs font-mono font-bold text-slate-900 bg-white border border-emerald-300 rounded-lg focus:outline-emerald-600 focus:border-emerald-600"
+                    title="KDV hariç birim fiyat (4 ondalık desteklenir)"
+                  />
+                  <span className="absolute right-1.5 text-slate-400 font-mono text-[11px] pointer-events-none">
+                    ₺
+                  </span>
+                </div>
+              </td>
+
+              <td className="py-2 px-2 text-center">
+                <select
+                  value={newKdvOrani}
+                  onChange={(e) => setNewKdvOrani(parseInt(e.target.value, 10) || 0)}
+                  className="px-2 py-1.5 text-xs font-mono font-bold text-slate-800 bg-white border border-emerald-300 rounded-lg focus:outline-emerald-600 focus:border-emerald-600 cursor-pointer"
+                  title="Yeni ürün KDV oranı"
+                >
+                  <option value="20">%20</option>
+                  <option value="10">%10</option>
+                  <option value="1">%1</option>
+                  <option value="0">%0</option>
+                </select>
+              </td>
+
+              <td className="py-2.5 px-3 text-right font-mono text-slate-500">
+                {formatNumber(newItemPreview.kdvHaricTutar)} ₺
+              </td>
+
+              <td className="py-2.5 px-3 text-right font-mono text-slate-500">
+                {formatNumber(newItemPreview.kdvTutari)} ₺
+              </td>
+
+              <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-700">
+                {formatNumber(newItemPreview.toplamTutar)} ₺
+              </td>
+
+              <td className="py-2 px-2 text-center">
+                <button
+                  type="button"
+                  onClick={handleAddNewRow}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
+                  title="Ürünü listeye ve toplama ekle (Enter)"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Ekle</span>
+                </button>
+              </td>
+            </tr>
           </tbody>
 
           {/* Sticky Total Footer */}

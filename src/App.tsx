@@ -11,6 +11,7 @@ import { BalancePreviewModal } from './components/BalancePreviewModal';
 import { ExtractedProductItem, ParseResult } from './types/excel';
 import { parseExcelBuffer } from './utils/excelParser';
 import {
+  BalanceStrategy,
   balanceDifferenceAcrossAllItems,
   balanceDifferenceWithAdjustment,
   balanceDifferenceOnLastItem,
@@ -40,6 +41,7 @@ export default function App() {
   const [tevkifatRules, setTevkifatRules] = useState<TevkifatRule[]>(() => loadTevkifatRules());
 
   const [exportSortedItems, setExportSortedItems] = useState<ExtractedProductItem[]>([]);
+  const [balanceStrategy, setBalanceStrategy] = useState<BalanceStrategy>('balanced');
 
   // Helper to recompute totals for the entire items list
   const recomputeTotals = (
@@ -103,9 +105,10 @@ export default function App() {
     return balanceDifferenceAcrossAllItems(
       currentActiveItems,
       parseResult.reconciliation.excelGrandTotal,
-      parseResult.reconciliation.targetMode
+      parseResult.reconciliation.targetMode,
+      balanceStrategy
     );
-  }, [currentActiveItems, parseResult]);
+  }, [currentActiveItems, parseResult, balanceStrategy]);
 
   const handleFileLoaded = (buffer: ArrayBuffer, fileName: string) => {
     setIsLoading(true);
@@ -443,7 +446,7 @@ export default function App() {
             parseResult={parseResult}
           />
 
-          {/* Balance Preview Modal: Eski vs Yeni Fiyat Karşılaştırma Penceresi */}
+          {/* Balance Preview Modal: Eski vs Yeni Miktar & Fiyat Karşılaştırma Penceresi */}
           <BalancePreviewModal
             isOpen={isBalancePreviewOpen}
             onClose={() => setIsBalancePreviewOpen(false)}
@@ -457,6 +460,8 @@ export default function App() {
                 : parseResult.reconciliation.calculatedSubtotal
             }
             targetMode={parseResult.reconciliation.targetMode}
+            strategy={balanceStrategy}
+            onChangeStrategy={setBalanceStrategy}
           />
         </>
       )}

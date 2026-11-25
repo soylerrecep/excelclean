@@ -139,101 +139,293 @@ export function groupProductsByName(items: ExtractedProductItem[]): ExtractedPro
   return getMergePreviewGroups(items).map(g => g.combinedItem);
 }
 
+export type BalanceStrategy = 'balanced' | 'quantityFirst' | 'priceEqual';
+
+const CONTINUOUS_UNITS = new Set([
+  'KG', 'KĞ', 'KİLO', 'KILO', 'KİLOGRAM', 'KILOGRAM', 'GR', 'GRAM', 'MG', 'TON', 'TN',
+  'MT', 'M', 'METRE', 'METRETÜL', 'METRETUL', 'MTUL', 'M/T',
+  'M2', 'M²', 'METREKARE', 'M3', 'M³', 'METREKÜP', 'METREKUP', 'CM', 'MM', 'KM',
+  'LT', 'L', 'LİTRE', 'LITRE', 'ML', 'CC'
+]);
+
+function isContinuousQuantity(item: ExtractedProductItem): boolean {
+  if (Math.abs(item.miktar - Math.round(item.miktar)) > 0.0001) {
+    return true;
+  }
+  const unitClean = item.birim.trim().toUpperCase().replace(/\.+$/, '');
+  return CONTINUOUS_UNITS.has(unitClean);
+}
+
 /**
- * Balances rounding difference by distributing it equally across ALL products' prices
- * so that the sum of all products matches the Excel Dip Total exactly to the penny.
+ * Computes proportional target line totals in integer kuruş using Largest Remainder Method
+ * so the sum of item targets matches targetCents exactly without distorting small items.
+ */
+function allocateProportionalCents(weights: number[], targetCents: number): number[] {
+  const sumWeights = weights.reduce((a, b) => a + b, 0);
+  if (sumWeights <= 0) {
+    const N = weights.length;
+    const base = Math.trunc(targetCents / N);
+    const rem = targetCents - base * N;
+    return weights.map((_, i) => base + (i < Math.abs(rem) ? Math.sign(rem) : 0));
+  }
+
+  const exactShares = weights.map(w => (w / sumWeights) * targetCents);
+  const floors = exactShares.map(s => Math.trunc(s));
+  let remainder = targetCents - floors.reduce((a, b) => a + b, 0);
+
+  const indexedRemainders = exactShares
+    .map((s, idx) => ({ idx, frac: s - floors[idx] }))
+    .sort((a, b) => (remainder >= 0 ? b.frac - a.frac : a.frac - b.frac));
+
+  const step = remainder >= 0 ? 1 : -1;
+  let k = 0;
+  while (remainder !== 0 && k < indexedRemainders.length) {
+    floors[indexedRemainders[k].idx] += step;
+    remainder -= step;
+    k++;
+  }
+
+  return floors;
+}
+
+/**
+ * Balances difference against Excel Dip Total using the selected strategy:
+ * - 'balanced' (default): Stably adjusts both quantities and 4-decimal unit prices proportionally
+ * - 'quantityFirst': Adjusts product quantities proportionally while keeping unit prices fixed
+ * - 'priceEqual': Keeps quantities fixed and distributes difference equally across unit prices
  */
 export function balanceDifferenceAcrossAllItems(
   items: ExtractedProductItem[],
   targetTotal: number,
-  targetMode: 'kdvDahil' | 'kdvHaric'
+  targetMode: 'kdvDahil' | 'kdvHaric',
+  strategy: BalanceStrategy = 'balanced'
 ): ExtractedProductItem[] {
   if (items.length === 0) return items;
 
-  // Filter out any artificial adjustment row
   const cleanItems = items.filter(it => !it.isAdjustment);
   if (cleanItems.length === 0) return items;
 
-  const currentTotal =
-    targetMode === 'kdvDahil'
-      ? cleanItems.reduce((acc, it) => acc + it.toplamTutar, 0)
-      : cleanItems.reduce((acc, it) => acc + it.kdvHaricTutar, 0);
+  const getLineValue = (it: ExtractedProductItem) =>
+    targetMode === 'kdvDahil' ? it.toplamTutar : it.kdvHaricTutar;
 
+  const currentTotal = Math.round(cleanItems.reduce((acc, it) => acc + getLineValue(it), 0) * 100) / 100;
   const diff = Math.round((targetTotal - currentTotal) * 100) / 100;
+
   if (Math.abs(diff) < 0.005) {
     return cleanItems;
   }
 
-  // Total difference in kuruş (integer cents)
-  const totalCents = Math.round(diff * 100);
+  const targetCents = Math.round(targetTotal * 100);
+  const totalDiffCents = Math.round(diff * 100);
   const N = cleanItems.length;
 
-  const baseCents = Math.trunc(totalCents / N);
-  const remainderCents = totalCents - (baseCents * N);
+  let updatedItems: ExtractedProductItem[];
 
-  // Distribute remainder cents to items (positive or negative)
-  const centsPerItem = new Array(N).fill(baseCents);
-  const absRemainder = Math.abs(remainderCents);
-  const sign = Math.sign(remainderCents);
-
-  for (let i = 0; i < absRemainder; i++) {
-    centsPerItem[i] += sign;
-  }
-
-  const updatedItems = cleanItems.map((item, idx) => {
-    const deltaTutar = centsPerItem[idx] / 100;
-    if (deltaTutar === 0) return item;
-
-    let updatedHaricTutar = item.kdvHaricTutar;
-    let updatedKdvTutari = item.kdvTutari;
-    let updatedToplamTutar = item.toplamTutar;
-
-    if (targetMode === 'kdvDahil') {
-      updatedToplamTutar = Math.round((item.toplamTutar + deltaTutar) * 100) / 100;
-      const rateMultiplier = 1 + (item.kdvOrani || 0) / 100;
-      updatedHaricTutar = Math.round((updatedToplamTutar / rateMultiplier) * 100) / 100;
-      updatedKdvTutari = Math.round((updatedToplamTutar - updatedHaricTutar) * 100) / 100;
-    } else {
-      updatedHaricTutar = Math.round((item.kdvHaricTutar + deltaTutar) * 100) / 100;
-      updatedKdvTutari = Math.round(updatedHaricTutar * (item.kdvOrani / 100) * 100) / 100;
-      updatedToplamTutar = Math.round((updatedHaricTutar + updatedKdvTutari) * 100) / 100;
+  if (strategy === 'priceEqual' || currentTotal <= 0) {
+    // Equal kuruş per item, keeping quantities fixed
+    const baseCents = Math.trunc(totalDiffCents / N);
+    const remainderCents = totalDiffCents - baseCents * N;
+    const centsPerItem = new Array(N).fill(baseCents);
+    const absRemainder = Math.abs(remainderCents);
+    const sign = Math.sign(remainderCents);
+    for (let i = 0; i < absRemainder; i++) {
+      centsPerItem[i] += sign;
     }
 
-    const updatedBirimFiyat =
-      item.miktar > 0
-        ? Math.round((updatedHaricTutar / item.miktar) * 10000) / 10000
-        : item.kdvHaricFiyat;
+    updatedItems = cleanItems.map((item, idx) => {
+      const deltaTutar = centsPerItem[idx] / 100;
+      if (deltaTutar === 0) return item;
 
-    return {
-      ...item,
-      kdvHaricFiyat: updatedBirimFiyat,
-      kdvHaricTutar: updatedHaricTutar,
-      kdvTutari: updatedKdvTutari,
-      toplamTutar: updatedToplamTutar
-    };
-  });
+      const rateMultiplier = 1 + (item.kdvOrani || 0) / 100;
+      const targetHaric =
+        targetMode === 'kdvDahil'
+          ? (item.toplamTutar + deltaTutar) / rateMultiplier
+          : item.kdvHaricTutar + deltaTutar;
 
-  // Final validation to guarantee 100% exact match down to the penny
-  const finalSum =
-    targetMode === 'kdvDahil'
-      ? updatedItems.reduce((acc, it) => acc + it.toplamTutar, 0)
-      : updatedItems.reduce((acc, it) => acc + it.kdvHaricTutar, 0);
+      const newFiyat =
+        item.miktar > 0
+          ? Math.max(0.0001, Math.round((targetHaric / item.miktar) * 10000) / 10000)
+          : item.kdvHaricFiyat;
 
+      return recalculateItem(item, { kdvHaricFiyat: newFiyat });
+    });
+  } else if (strategy === 'quantityFirst') {
+    // Proportional target per item, adjusting quantity while keeping unit price fixed
+    const weights = cleanItems.map(it => Math.max(0, getLineValue(it)));
+    const targetLineCents = allocateProportionalCents(weights, targetCents);
+
+    updatedItems = cleanItems.map((item, idx) => {
+      const oldLineVal = getLineValue(item);
+      const targetLineVal = targetLineCents[idx] / 100;
+      if (Math.abs(targetLineVal - oldLineVal) < 0.005 || item.kdvHaricFiyat <= 0) {
+        return item;
+      }
+
+      const rateMultiplier = 1 + (item.kdvOrani || 0) / 100;
+      const targetHaric = targetMode === 'kdvDahil' ? targetLineVal / rateMultiplier : targetLineVal;
+
+      const newMiktar = Math.max(
+        0.01,
+        Math.round((targetHaric / item.kdvHaricFiyat) * 100) / 100
+      );
+
+      return recalculateItem(item, { miktar: newMiktar });
+    });
+  } else {
+    // 'balanced': Stable proportional adjustment across both quantities and 4-decimal unit prices
+    const weights = cleanItems.map(it => Math.max(0, getLineValue(it)));
+    const targetLineCents = allocateProportionalCents(weights, targetCents);
+    const overallScale = currentTotal > 0 ? targetTotal / currentTotal : 1;
+    const isMeaningfulDiff = Math.abs(diff) >= 0.5 && Math.abs(overallScale - 1) >= 0.0015;
+
+    updatedItems = cleanItems.map((item, idx) => {
+      const oldLineVal = getLineValue(item);
+      const targetLineVal = targetLineCents[idx] / 100;
+      if (Math.abs(targetLineVal - oldLineVal) < 0.005 || item.miktar <= 0) {
+        return item;
+      }
+
+      const rateMultiplier = 1 + (item.kdvOrani || 0) / 100;
+      const targetHaric = targetMode === 'kdvDahil' ? targetLineVal / rateMultiplier : targetLineVal;
+      const lineScale = oldLineVal > 0 ? targetLineVal / oldLineVal : 1;
+
+      let newMiktar = item.miktar;
+      if (isMeaningfulDiff && lineScale > 0) {
+        const qtyScale = Math.sqrt(lineScale);
+        if (isContinuousQuantity(item)) {
+          newMiktar = Math.max(0.01, Math.round(item.miktar * qtyScale * 100) / 100);
+        } else {
+          // For discrete integer units (ADET, TORBA, etc.), prefer clean integer step if it moves by >= 1
+          const roundedInt = Math.round(item.miktar * qtyScale);
+          if (roundedInt >= 1 && roundedInt !== item.miktar) {
+            newMiktar = roundedInt;
+          } else if (Math.abs(lineScale - 1) > 0.08 && item.miktar >= 2) {
+            newMiktar = Math.max(0.01, Math.round(item.miktar * qtyScale * 100) / 100);
+          }
+        }
+      }
+
+      const newFiyat = Math.max(
+        0.0001,
+        Math.round((targetHaric / newMiktar) * 10000) / 10000
+      );
+
+      return recalculateItem(item, {
+        miktar: newMiktar,
+        kdvHaricFiyat: newFiyat
+      });
+    });
+  }
+
+  // Penny-exact solver: try fine 0.0001 price nudges (or 0.01 qty nudges in quantityFirst)
+  // on largest items first so every row stays consistent with recalculateItem AND sum matches 0.00 difference.
+  const computeSum = (arr: ExtractedProductItem[]) =>
+    Math.round(arr.reduce((acc, it) => acc + getLineValue(it), 0) * 100) / 100;
+
+  let remCents = Math.round((targetTotal - computeSum(updatedItems)) * 100);
+
+  if (remCents !== 0) {
+    const indicesBySize = updatedItems
+      .map((it, idx) => ({ idx, val: getLineValue(it) }))
+      .sort((a, b) => b.val - a.val)
+      .map(x => x.idx);
+
+    let guard = 0;
+    while (remCents !== 0 && guard < 120) {
+      guard++;
+      let progressed = false;
+      const wantSign = Math.sign(remCents);
+
+      for (const idx of indicesBySize) {
+        if (remCents === 0) break;
+        const it = updatedItems[idx];
+        if (it.miktar <= 0) continue;
+
+        const oldValCents = Math.round(getLineValue(it) * 100);
+        let bestCandidate: ExtractedProductItem | null = null;
+        let bestDeltaCents = 0;
+
+        // Try small unit price adjustments (0.0001 steps, and larger when miktar is small)
+        const priceSteps =
+          it.miktar >= 10
+            ? [0.0001, 0.0002, 0.0005, 0.001, 0.002]
+            : it.miktar >= 2
+              ? [0.0005, 0.001, 0.002, 0.005, 0.01]
+              : [0.005, 0.01, 0.02, 0.03];
+
+        for (const pStep of priceSteps) {
+          const candFiyat = Math.max(
+            0.0001,
+            Math.round((it.kdvHaricFiyat + wantSign * pStep) * 10000) / 10000
+          );
+          const cand = recalculateItem(it, { kdvHaricFiyat: candFiyat });
+          const newValCents = Math.round(getLineValue(cand) * 100);
+          const deltaCents = newValCents - oldValCents;
+
+          if (
+            deltaCents !== 0 &&
+            Math.sign(deltaCents) === wantSign &&
+            Math.abs(deltaCents) <= Math.abs(remCents)
+          ) {
+            if (!bestCandidate || Math.abs(deltaCents) < Math.abs(bestDeltaCents) || deltaCents === remCents) {
+              bestCandidate = cand;
+              bestDeltaCents = deltaCents;
+              if (Math.abs(bestDeltaCents) === 1 || bestDeltaCents === remCents) break;
+            }
+          }
+        }
+
+        if (bestCandidate) {
+          updatedItems[idx] = bestCandidate;
+          remCents -= bestDeltaCents;
+          progressed = true;
+        }
+      }
+
+      if (!progressed) break;
+    }
+  }
+
+  // Final hard guarantee: if any odd rounding cent remains (e.g. due to 20% KDV 1.2x integer step parity),
+  // absorb the remaining cents on the largest item so Dip Toplam matches 100% to the penny.
+  const finalSum = computeSum(updatedItems);
   const finalDiff = Math.round((targetTotal - finalSum) * 100) / 100;
 
-  if (Math.abs(finalDiff) > 0.005) {
-    const lastIdx = updatedItems.length - 1;
-    const lastItem = updatedItems[lastIdx];
-    let adjToplam = Math.round((lastItem.toplamTutar + finalDiff) * 100) / 100;
-    let adjHaric = Math.round((adjToplam / (1 + (lastItem.kdvOrani || 0) / 100)) * 100) / 100;
-    let adjKdv = Math.round((adjToplam - adjHaric) * 100) / 100;
-    let adjBirimFiyat =
-      lastItem.miktar > 0
-        ? Math.round((adjHaric / lastItem.miktar) * 10000) / 10000
-        : lastItem.kdvHaricFiyat;
+  if (Math.abs(finalDiff) >= 0.005) {
+    let targetIdx = updatedItems.length - 1;
+    let maxVal = -1;
+    updatedItems.forEach((it, idx) => {
+      const v = getLineValue(it);
+      if (v > maxVal) {
+        maxVal = v;
+        targetIdx = idx;
+      }
+    });
 
-    updatedItems[lastIdx] = {
-      ...lastItem,
+    const targetItem = updatedItems[targetIdx];
+    const rateMultiplier = 1 + (targetItem.kdvOrani || 0) / 100;
+
+    let adjToplam = targetItem.toplamTutar;
+    let adjHaric = targetItem.kdvHaricTutar;
+    let adjKdv = targetItem.kdvTutari;
+
+    if (targetMode === 'kdvDahil') {
+      adjToplam = Math.round((targetItem.toplamTutar + finalDiff) * 100) / 100;
+      adjHaric = Math.round((adjToplam / rateMultiplier) * 100) / 100;
+      adjKdv = Math.round((adjToplam - adjHaric) * 100) / 100;
+    } else {
+      adjHaric = Math.round((targetItem.kdvHaricTutar + finalDiff) * 100) / 100;
+      adjKdv = Math.round(adjHaric * ((targetItem.kdvOrani || 0) / 100) * 100) / 100;
+      adjToplam = Math.round((adjHaric + adjKdv) * 100) / 100;
+    }
+
+    const adjBirimFiyat =
+      targetItem.miktar > 0
+        ? Math.round((adjHaric / targetItem.miktar) * 10000) / 10000
+        : targetItem.kdvHaricFiyat;
+
+    updatedItems[targetIdx] = {
+      ...targetItem,
       kdvHaricFiyat: adjBirimFiyat,
       kdvHaricTutar: adjHaric,
       kdvTutari: adjKdv,

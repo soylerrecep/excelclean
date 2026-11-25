@@ -142,7 +142,7 @@ export const ReconciliationCard: React.FC<ReconciliationCardProps> = ({
                   ? 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white'
               }`}
-              title={`Farkı tüm ürünlerin fiyatlarına eşit paylaştırarak Excel dip toplamına (${formatCurrency(reconciliation.excelGrandTotal)}) eşitler`}
+              title={`Farkı ürünlerin miktar ve birim fiyatlarına stabil şekilde paylaştırarak Excel dip toplamına (${formatCurrency(reconciliation.excelGrandTotal)}) eşitler`}
             >
               <Wand2 className="w-3.5 h-3.5" />
               <span>Excel Dip Toplamına Eşitle</span>
@@ -181,11 +181,11 @@ export const ReconciliationCard: React.FC<ReconciliationCardProps> = ({
                   </div>
                   <div>
                     <div className="font-bold text-emerald-950 flex items-center gap-1.5">
-                      <span>Bütün Ürünlere Eşit Paylaştır</span>
+                      <span>Dengeli Ayarlama (Miktar + Fiyat)</span>
                       <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-200 text-emerald-900">Önerilen</span>
                     </div>
                     <div className="text-[11px] text-slate-600 mt-0.5">
-                      Farkı (±{formatCurrency(currentDiff)}) tüm {itemCount} adet ürünün fiyatlarına eşit olarak dağıtarak toplamı Excel dip toplamına ({formatCurrency(reconciliation.excelGrandTotal)}) kuruşu kuruşuna eşitler.
+                      Farkı (±{formatCurrency(currentDiff)}) tüm {itemCount} ürünün miktar ve fiyatlarına orantılı dağıtarak Excel dip toplamına ({formatCurrency(reconciliation.excelGrandTotal)}) stabil şekilde eşitler (Önizleme açılır).
                     </div>
                   </div>
                 </button>
@@ -334,7 +334,7 @@ export const ReconciliationCard: React.FC<ReconciliationCardProps> = ({
               <button
                 onClick={() => (onOpenBalancePreview ? onOpenBalancePreview() : onBalanceAcrossAllItems())}
                 className="text-xs text-emerald-800 font-bold underline hover:text-emerald-950 cursor-pointer"
-                title="Farkı bütün ürünlerin fiyatlarına eşit paylaştırarak dip toplama eşitler"
+                title="Farkı ürünlerin miktar ve fiyatlarına stabil şekilde paylaştırarak dip toplama eşitler"
               >
                 Dip Toplama Eşitle
               </button>
